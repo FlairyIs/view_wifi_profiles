@@ -65,19 +65,29 @@ def get_wifi_password_linux(profile_name):
         print(f"Error: {e}")
         return None
 
-def get_wifi_profiles_linux():
-    """Get previously connected Wi-Fi networks on Linux."""
+def get_wifi_profiles_alpine():
+    """Get previously connected Wi-Fi networks on Alpine Linux."""
     try:
-        # List files in the NetworkManager's system-connections directory
-        connections_path = "/etc/NetworkManager/system-connections/"
-        if not os.path.exists(connections_path):
-            print("NetworkManager system connections directory not found.")
-            return []
-
+        # On Alpine Linux, Wi-Fi networks may be stored in wpa_supplicant.conf
+        supplicant_file = "/etc/wpa_supplicant/wpa_supplicant.conf"
         profiles = []
-        for file_name in os.listdir(connections_path):
-            if file_name.endswith(".nmconnection"):
-                profiles.append(file_name)
+
+        if not os.path.exists(supplicant_file):
+            print(f"wpa_supplicant configuration file not found at {supplicant_file}.")
+            return profiles
+        
+        # Open wpa_supplicant.conf to extract SSID and password
+        with open(supplicant_file, 'r') as file:
+            lines = file.readlines()
+            ssid = None
+            for line in lines:
+                line = line.strip()
+                if line.startswith("ssid="):
+                    ssid = line.split('=')[1].strip('"')
+                if line.startswith("psk=") and ssid:
+                    password = line.split('=')[1].strip('"')
+                    profiles.append((ssid, password))
+                    ssid = None  # Reset ssid after password is found
         return profiles
     except Exception as e:
         print(f"Error: {e}")
@@ -107,6 +117,14 @@ def main():
                 print(f"Password: {password}")
             else:
                 print("No password found or cannot retrieve the password.")
+    elif system_platform == "Darwin":  # macOS
+        print("This script is not tested on macOS.")
+    elif system_platform == "Linux" and os.path.exists('/etc/alpine-release'):
+        print("\nPreviously connected Wi-Fi networks on Alpine Linux:")
+        profiles = get_wifi_profiles_alpine()
+        for ssid, password in profiles:
+            print(f"\nNetwork: {ssid}")
+            print(f"Password: {password}")
     else:
         print("Unsupported OS. This script works on Windows and Linux only.")
 
